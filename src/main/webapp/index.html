@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css"
+          integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+    <title>Public Blog</title>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-light bg-light" id="navbar-main">
+    <a class="navbar-brand link-primary" href="#">Public Blog</a>
+    <button id="pb" class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+    <ul class="navbar-nav ml-auto">
+        <li class="nav-item" id="userUsernameLi">
+
+        </li>
+        <li class="nav-item ml-3" id="logoutLi">
+        </li>
+    </ul>
+</nav>
+<div id="mainDiv">
+</div>
+
+</body>
+</html>
+<style>
+    .posts{
+        border: 2px solid black;
+        width: 100%;
+        padding-left: 24px;
+        padding-right: 24px;
+        padding-bottom: 12px;
+        margin-bottom: 8px;
+    }
+    #mainDiv{
+        margin-top: 32px;
+        margin-left: 256px;
+        margin-right: 256px;
+    }
+    #newPostBtn{
+        margin-top: 32px;
+    }
+    #logoutBtn{
+        float: right;
+    }
+</style>
+<script>
+    let userUsername = null;
+    const mainDiv = document.getElementById("mainDiv");
+
+    const cookies = document.cookie.split('=');
+    let token = cookies[cookies.length - 1];
+    if (token === null || token === ""){
+        displayLoginForm();
+    } else
+    {
+        //ukoliko je vec ulogovan, tj ima token u cookies
+        const usernameHolder = document.getElementById("userUsernameLi");
+        const user = getCurrUser();
+        let username = JSON.stringify(user.sub);
+        userUsername = username;
+        const usernameDisplay = document.createElement("a");
+        usernameDisplay.classList.add("nav-link", "disabled");
+        usernameDisplay.href = "#";
+        usernameDisplay.innerText = "Welcome, " + username.replaceAll("\"","");
+        usernameHolder.appendChild(usernameDisplay);
+        const logOutDiv = document.createElement("div");
+        logOutDiv.classList.add("ms-auto");
+        const logOutBtn = document.createElement("button");
+        logOutBtn.classList.add("ms-auto", "btn", "btn-danger");
+        logOutBtn.innerText = "Log Out";
+        logOutBtn.id = 'logutBtn';
+        logOutBtn.onclick = function (e){
+            e.preventDefault();
+            document.cookie='token=;SameSite=Lax;';
+            window.location.reload();
+        }
+        const nav = document.getElementById("logoutLi");
+        nav.appendChild(logOutBtn);
+        fetch('/api/posts', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).then(response => {
+            return response.json();
+        }).then(posts => {
+            for (const post of posts) {
+                const postInfo = document.createElement("div");
+                postInfo.style.marginBottom = "12px";
+                postInfo.style.marginTop = "8px";
+                postInfo.id = "postInfoDiv";
+                const dateDiffP = document.createElement("p");
+                let tekst = "";
+                if (post.content.length >= 320){
+                    tekst = post.content.substr(0,320);
+                } else
+                    tekst = post.content;
+                tekst += "...";
+                tekst = tekst.replace(/(\r\n|\n|\r)/gm, "");
+                const postDiv = document.createElement("div");
+                const postTitle = document.createElement("h3");
+                postTitle.style.fontWeight = 'bold';
+                postTitle.innerText = post.title;
+                postTitle.style = "display: inline;\n" +
+                    "    vertical-align: top;\n"+
+                    "line-height: 28px";
+                dateDiffP.style = "display: inline;\n" +
+                    "    vertical-align: top;\n"+
+                    "line-height: 28px";
+                dateDiffP.style.float = "right";
+                const dateArray = post.date.split("-");
+                const dateYear = dateArray[0];
+                const dateMonth = dateArray[1];
+                const dateDay = dateArray[2];
+                const stringDate = dateYear.toString() + "-" + dateMonth.toString() + "-" + dateDay.toString();
+                const postD = new Date(stringDate);
+                const dateNow = new Date();
+                const diffTime = Math.abs(dateNow - postD);
+                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let toShowDiff = "";
+                diffDays--;
+                if (diffDays <= 0){
+                    toShowDiff = "today";
+                } else if (diffDays === 1){
+                    toShowDiff = "a day ago";
+                }
+                else if (diffDays <= 30){
+                    toShowDiff = diffDays.toString() + " days ago";
+                }
+
+                if (diffDays / 30 === 1){
+                    toShowDiff = "about 1 month ago";
+                }
+                if (diffDays / 30 > 1 && diffDays / 30 < 12){
+                    toShowDiff = "about " + Math.floor(diffDays/30) + " months ago";
+                }
+                if (diffDays / 365 >= 1 && diffDays / 365 <= 2){
+                    toShowDiff = "about a year ago";
+                }
+                else if (diffDays / 365 > 2){
+                    toShowDiff = "about " + Math.floor(diffDays/365) + " years ago";
+                }
+                if (isNaN(diffDays)){
+                    toShowDiff = "today";
+                }
+                dateDiffP.innerText = toShowDiff;
+                dateDiffP.style.color = "gray";
+                const postAuthor = document.createElement("h5");
+                postAuthor.innerText = post.author;
+                const postContent = document.createElement("p");
+                postContent.innerText = tekst;
+                const viewBtn = document.createElement("button");
+                viewBtn.innerText='Read article';
+                viewBtn.classList.add('btn', 'btn-outline-secondary');
+                viewBtn.onclick = function (e) {
+                    displayPost(post);
+                };
+                postInfo.appendChild(postTitle);
+                postInfo.appendChild(dateDiffP);
+                postDiv.appendChild(postInfo);
+                postDiv.appendChild(postAuthor);
+                postDiv.appendChild(postContent);
+                postDiv.appendChild(viewBtn);
+                postDiv.classList.add("posts");
+                mainDiv.appendChild(postDiv);
+            }
+            const newPostBtn = document.createElement("button");
+            newPostBtn.classList.add("btn", "btn-primary");
+            newPostBtn.id = "newPostBtn";
+            newPostBtn.innerText = "New post";
+            newPostBtn.style.marginBottom = "32px";
+            newPostBtn.onclick = function (e) {
+                addPost();
+            };
+            mainDiv.appendChild(newPostBtn);
+        })
+    }
+
+    function addPost(){
+        removeAllChildNodes(mainDiv);
+        const backBtn = document.createElement("button");
+        backBtn.innerText = "Back";
+        backBtn.classList.add("btn", "btn-outline-danger");
+        backBtn.style.marginBottom = '32px';
+        backBtn.onclick = function (e) {
+            helperLoad();
+        }
+        mainDiv.appendChild(backBtn);
+
+        const form = document.createElement("form");
+        form.style.marginLeft = '96px';
+        form.style.marginRight = '96px';
+        const newPostHeading = document.createElement("h4");
+        newPostHeading.innerText = "Create a new post";
+        form.appendChild(newPostHeading);
+        const formGroup1 = document.createElement("div");
+        formGroup1.classList.add("form-group");
+        const labelAuthor = document.createElement("label");
+        labelAuthor.htmlFor = "authorInput";
+        labelAuthor.innerText = "Author";
+        const authorInput = document.createElement("input");
+        authorInput.classList.add("form-control");
+        authorInput.id = "authorInput";
+        authorInput.placeholder = "Enter author's name";
+        authorInput.value = userUsername.replaceAll("\"", "");
+        authorInput.readOnly = true;
+        formGroup1.appendChild(labelAuthor);
+        formGroup1.appendChild(authorInput);
+        form.appendChild(formGroup1);
+        const formGroup2 = document.createElement("div");
+        formGroup2.classList.add("form-group");
+        const labelTitle = document.createElement("label");
+        labelTitle.htmlFor = "titleInput";
+        labelTitle.innerText = "Title";
+        const titleInput = document.createElement("input");
+        titleInput.classList.add("form-control");
+        titleInput.id = "titleInput";
+        titleInput.placeholder = "Enter a title for the post";
+        formGroup2.appendChild(labelTitle);
+        formGroup2.appendChild(titleInput);
+        form.appendChild(formGroup2);
+        const formGroup3 = document.createElement("div");
+        formGroup3.classList.add("form-group");
+        const contentTxtArea = document.createElement("textarea");
+        contentTxtArea.id = "contentTxtArea";
+        contentTxtArea.classList.add("form-control");
+        contentTxtArea.rows = 4;
+        contentTxtArea.placeholder = "Enter text for the post";
+        formGroup3.appendChild(contentTxtArea);
+        form.appendChild(formGroup3);
+
+
+        const submitButton = document.createElement("button");
+        submitButton.classList.add("btn", "btn-primary");
+        submitButton.innerText = "Create post";
+        submitButton.onclick = function (e) {
+            e.preventDefault();
+            if (authorInput.value == "" || titleInput.value == "" || contentTxtArea.value == "")
+                alert("All fields are required!");
+            else
+                addPostToDB(authorInput.value, titleInput.value, contentTxtArea.value)
+        }
+        form.appendChild(submitButton);
+        mainDiv.appendChild(form);
+
+
+    }
+    function addPostToDB(author, title, content){
+        fetch('/api/posts/', {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                author: author,
+                title: title,
+                content: content
+            })
+        }).then(response => {
+            return response.json()
+        }).then( data => {
+            helperLoad();
+        });
+    }
+
+    function displayPost(post){
+        removeAllChildNodes(mainDiv);
+        mainDiv.style.marginLeft = "256px";
+        mainDiv.style.marginRight = "256px";
+        const backBtn = document.createElement("button");
+        backBtn.innerText = "Back";
+        backBtn.classList.add("btn", "btn-outline-danger");
+        backBtn.style.marginBottom = '32px';
+        backBtn.onclick = function (e) {
+            helperLoad();
+        }
+        mainDiv.appendChild(backBtn);
+
+        const postTitle = document.createElement("h1");
+        postTitle.innerText = post.title;
+        const postDate = document.createElement("p");
+        let dateSplit = post.date.split("-");
+        let dateYear = dateSplit[0];
+        let dateMonth = dateSplit[1];
+        let dateDay = dateSplit[2];
+        postDate.innerText = dateDay + "." + dateMonth + "." + dateYear + ".";
+        postDate.style.color = "gray";
+        const postAuthor = document.createElement("p");
+        postAuthor.innerText = post.author;
+        postAuthor.style.fontWeight = "600";
+        const postContent = document.createElement("p");
+        postContent.innerText = post.content;
+        const postDiv = document.createElement("div");
+        postDiv.style.marginLeft = "12px";
+        postDiv.style.marginRight = "12px";
+        postDiv.style.marginBottom = "32px";
+        postDiv.appendChild(postTitle);
+        postDiv.appendChild(postDate);
+        postDiv.appendChild(postAuthor);
+        postDiv.appendChild(postContent);
+        mainDiv.appendChild(postDiv);
+
+        //comments
+        const commentsDiv = document.createElement("div");
+        commentsDiv.id = "commentsDiv";
+        commentsDiv.style.marginLeft = "12px";
+        commentsDiv.style.marginRight = "12px";
+        commentsDiv.style.marginBottom = "32px";
+        const commentsHeading = document.createElement("h3");
+        commentsHeading.innerText = "Comments";
+        commentsDiv.appendChild(commentsHeading);
+        const br = document.createElement("br");
+        commentsDiv.appendChild(br);
+        fetch("/api/comments/" + post.id, {
+            method: "GET",
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).then( response => {
+            return response.json();
+        }).then( pComments => {
+            for (const comment of pComments){
+                const name = document.createElement("h5");
+                name.innerText = comment.name;
+                const text = document.createElement("p");
+                text.innerText = comment.text;
+                commentsDiv.appendChild(name);
+                commentsDiv.appendChild(text);
+                commentsDiv.appendChild(br);
+            }
+        })
+        mainDiv.appendChild(commentsDiv);
+        //forma za dodavanje komentara
+        const form = document.createElement("form");
+        form.style.marginRight = "128px";
+        const newCommentHeading = document.createElement("h4");
+        newCommentHeading.innerText = "New comment";
+        form.appendChild(newCommentHeading);
+        const formGroup1 = document.createElement("div");
+        formGroup1.classList.add("form-group");
+        const labelName = document.createElement("label");
+        labelName.htmlFor = "nameInput";
+        labelName.innerText = "Name";
+        const nameInput = document.createElement("input");
+        nameInput.classList.add("form-control");
+        nameInput.id = "nameInput";
+        nameInput.placeholder = "Enter your name";
+        nameInput.value = userUsername.replaceAll("\"", "");
+        nameInput.readOnly = true;
+        formGroup1.appendChild(labelName);
+        formGroup1.appendChild(nameInput);
+        form.appendChild(formGroup1);
+        const formGroup3 = document.createElement("div");
+        formGroup3.classList.add("form-group");
+        const textTxtArea = document.createElement("textarea");
+        textTxtArea.id = "textTxtArea";
+        textTxtArea.classList.add("form-control");
+        textTxtArea.rows = 3;
+        textTxtArea.placeholder = "Enter your comment";
+        formGroup3.appendChild(textTxtArea);
+        form.appendChild(formGroup3);
+        const submitButton = document.createElement("button");
+        submitButton.classList.add("btn", "btn-primary");
+        submitButton.style.marginBottom = "64px";
+        submitButton.innerText = "Post comment";
+        submitButton.onclick = function (e) {
+            e.preventDefault();
+            if (nameInput.value == "" || textTxtArea.value == "")
+                alert("All fields are required!");
+            else{
+                addCommentToPost(post.id, nameInput.value, textTxtArea.value);
+                nameInput.value = "";
+                textTxtArea.value = "";
+            }
+        }
+        form.appendChild(submitButton);
+
+        mainDiv.appendChild(form);
+    }
+
+    function addCommentToPost(postId, name, text){
+        fetch("/api/comments/"+postId, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                postId: postId,
+                name: name,
+                text: text
+            })
+        }).then( response =>{
+            return response.json();
+        }).then( comment => {
+            const name = document.createElement("h5");
+            name.innerText = comment.name;
+            const text = document.createElement("p");
+            text.innerText = comment.text;
+            const commentsDiv = document.getElementById("commentsDiv");
+            commentsDiv.appendChild(name);
+            commentsDiv.appendChild(text);
+            const br = document.createElement("br");
+            commentsDiv.appendChild(br);
+        });
+    }
+
+    function displayLoginForm(){
+        const form = document.createElement("form");
+        form.style.marginLeft = '96px';
+        form.style.marginRight = '96px';
+        const loginHeading = document.createElement("h4");
+        loginHeading.innerText = "Log In";
+        form.appendChild(loginHeading);
+        const formGroup1 = document.createElement("div");
+        formGroup1.classList.add("form-group");
+        const labelUsername = document.createElement("label");
+        labelUsername.htmlFor = "usernameInput";
+        labelUsername.innerText = "Username";
+        const usernameInput = document.createElement("input");
+        usernameInput.classList.add("form-control");
+        usernameInput.id = "usernameInput";
+        usernameInput.placeholder = "Enter your username";
+        formGroup1.appendChild(labelUsername);
+        formGroup1.appendChild(usernameInput);
+        form.appendChild(formGroup1);
+        const formGroup2 = document.createElement("div");
+        formGroup2.classList.add("form-group");
+        const labelPassword = document.createElement("label");
+        labelPassword.htmlFor = "passwordInput";
+        labelPassword.innerText = "Password";
+        const passwordInput = document.createElement("input");
+        passwordInput.classList.add("form-control");
+        passwordInput.id = "passwordInput";
+        passwordInput.placeholder = "Enter your password";
+        passwordInput.type = "password";
+        formGroup2.appendChild(labelPassword);
+        formGroup2.appendChild(passwordInput);
+        form.appendChild(formGroup2);
+
+
+        const submitButton = document.createElement("button");
+        submitButton.classList.add("btn", "btn-primary");
+        submitButton.innerText = "Log In";
+        submitButton.onclick = function (e) {
+            e.preventDefault();
+            if (usernameInput.value === "" || passwordInput.value === "")
+                alert("All fields are required!");
+            else{
+                loginUser(usernameInput.value.toString(), passwordInput.value.toString());
+                usernameInput.value = "";
+                passwordInput.value = "";
+
+            }
+        }
+        form.appendChild(submitButton);
+        mainDiv.appendChild(form);
+    }
+
+    function loginUser(username, password){
+        fetch("/api/users/login", {
+            method: 'POST',
+            headers: {
+                'Content-Type':'application/json'
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        }).then( response => {
+            return response.json();
+        }).then( data => {
+            if (data.jwt){
+                //pamcenje token-a u cookie zbog logOut-a i u token zbog auth
+                token = null;
+                token = data.jwt;
+                document.cookie = `token=${data.jwt};SameSite=Lax`;
+                window.location.reload();
+            } else if (data.message){
+                alert(data.message);
+                return;
+            } else{
+                console.log("APSOLUTNA GRESKA!");
+            }
+        })
+    }
+
+    function getCurrUser(){
+        let token = document.cookie.split(';')[0].split('=')[1];
+        if(token === ''){
+            return 'no user';
+        }
+        let payload = token.split('.')[1];
+        return JSON.parse(atob(payload));
+    }
+
+
+    function removeAllChildNodes(parent) {
+        while (parent.firstChild) {
+            parent.removeChild(parent.firstChild);
+        }
+    }
+
+    //funkcija koja ce pri dodavanju novog posta ili pri pritistku buttona back vratiti pocetni content stranice
+    function helperLoad(){
+        removeAllChildNodes(mainDiv);
+        fetch('/api/posts', {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).then(response => {
+            return response.json();
+        }).then(posts => {
+            for (const post of posts) {
+                const postInfo = document.createElement("div");
+                postInfo.style.marginBottom = "12px";
+                postInfo.style.marginTop = "8px";
+                postInfo.id = "postInfoDiv";
+                const dateDiffP = document.createElement("p");
+                let tekst = "";
+                if (post.content.length >= 320){
+                    tekst = post.content.substr(0,320);
+                } else
+                    tekst = post.content;
+                tekst += "...";
+                tekst = tekst.replace(/(\r\n|\n|\r)/gm, "");
+                const postDiv = document.createElement("div");
+                const postTitle = document.createElement("h3");
+                postTitle.style.fontWeight = 'bold';
+                postTitle.innerText = post.title;
+                postTitle.style = "display: inline;\n" +
+                    "    vertical-align: top;\n"+
+                    "line-height: 28px";
+                dateDiffP.style = "display: inline;\n" +
+                    "    vertical-align: top;\n"+
+                    "line-height: 28px";
+                dateDiffP.style.float = "right";
+                const dateArray = post.date.split("-");
+                const dateYear = dateArray[0];
+                const dateMonth = dateArray[1];
+                const dateDay = dateArray[2];
+                const stringDate = dateYear.toString() + "-" + dateMonth.toString() + "-" + dateDay.toString();
+                const postD = new Date(stringDate);
+                const dateNow = new Date();
+                const diffTime = Math.abs(dateNow - postD);
+                let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                let toShowDiff = "";
+                diffDays--;
+
+                if (diffDays <= 0){
+                    toShowDiff = "today";
+                } else if (diffDays === 1){
+                    toShowDiff = "a day ago";
+                }
+                else if (diffDays <= 30){
+                    toShowDiff = diffDays.toString() + " days ago";
+                }
+
+                if (diffDays / 30 === 1){
+                    toShowDiff = "about 1 month ago";
+                }
+                if (diffDays / 30 > 1 && diffDays / 30 < 12){
+                    toShowDiff = "about " + Math.floor(diffDays/30) + " months ago";
+                }
+                if (diffDays / 365 >= 1 && diffDays / 365 <= 2){
+                    toShowDiff = "about a year ago";
+                }
+                else if (diffDays / 365 > 2){
+                    toShowDiff = "about " + Math.floor(diffDays/365) + " years ago";
+                }
+                if (isNaN(diffDays)){
+                    toShowDiff = "today";
+                }
+                dateDiffP.innerText = toShowDiff;
+                dateDiffP.style.color = "gray";
+                const postAuthor = document.createElement("h5");
+                postAuthor.innerText = post.author;
+                const postContent = document.createElement("p");
+                postContent.innerText = tekst;
+                const viewBtn = document.createElement("button");
+                viewBtn.innerText='Read article';
+                viewBtn.classList.add('btn', 'btn-outline-secondary');
+                viewBtn.onclick = function (e) {
+                    displayPost(post);
+                };
+                //postDiv.appendChild(postTitle);
+                postInfo.appendChild(postTitle);
+                postInfo.appendChild(dateDiffP);
+                postDiv.appendChild(postInfo);
+                postDiv.appendChild(postAuthor);
+                postDiv.appendChild(postContent);
+                postDiv.appendChild(viewBtn);
+                postDiv.classList.add("posts");
+                mainDiv.appendChild(postDiv);
+            }
+            const newPostBtn = document.createElement("button");
+            newPostBtn.classList.add("btn", "btn-primary");
+            newPostBtn.id = "newPostBtn";
+            newPostBtn.style.marginBottom = "32px";
+            newPostBtn.innerText = "New post";
+            newPostBtn.onclick = function (e) {
+                addPost();
+            };
+            mainDiv.appendChild(newPostBtn);
+        })
+    }
+
+
+</script>
